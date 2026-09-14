@@ -1,15 +1,8 @@
 # Mini Agent 5.0
 
-一个基于 Python 的轻量级 AI Agent 桌面应用，支持通过 PowerShell 执行系统命令。
+一个基于 Python 的轻量级 AI Agent 桌面应用。
+受SWE Agent仅靠单shell工具在agent横向测试中领先启发，仅保留一个有状态shell tool，并提高一定模块间耦合性精简而来。
 
-## 功能特性
-
-- 🤖 **AI 对话**：支持 OpenAI 兼容 API（如 DeepSeek、OpenAI 等）
-- 💻 **命令执行**：内置 PowerShell 工具，可执行系统命令
-- 📱 **桌面应用**：基于 pywebview 的原生窗口体验
-- 🔄 **会话管理**：支持多会话、历史记录持久化
-- ⚙️ **灵活配置**：可动态修改 API 配置
-- 📊 **Token 统计**：实时显示上下文使用情况
 
 ## 项目结构
 
@@ -36,11 +29,11 @@ pip install -r requirements.txt
 
 依赖列表：
 
-- `fastapi>=0.110.0` - Web 框架
-- `uvicorn>=0.27.0` - ASGI 服务器
-- `openai>=2.0.0` - OpenAI API 客户端
-- `deepseek-tokenizer>=0.1.0` - Token 计数
-- `pywebview>=5.0` - 桌面窗口
+- `fastapi>=0.110.0`
+- `uvicorn>=0.27.0`
+- `openai>=2.0.0`
+- `deepseek-tokenizer>=0.1.0`
+- `pywebview>=5.0`
 
 ## 运行方式
 
@@ -110,7 +103,7 @@ Agent 内置 `bash` 工具，用于执行 PowerShell 命令：
 
 ## 技术栈
 
-- **后端**：Python 3.10+、FastAPI、uvicorn
+- **后端**：Python 3.10+、FastAPI、uvicorn（支持会话并发、工具异步执行）
 - **前端**：HTML/CSS/JavaScript、pywebview
 - **AI**：OpenAI Responses API（流式）
 - **存储**：JSON 文件持久化
