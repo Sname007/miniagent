@@ -1,0 +1,2656 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mini Agent</title>
+    <script src="/static/marked.min.js"></script>
+    <style>
+        :root {
+            --body-bg: #0a0a0a;
+            --sidebar-bg: #000000;
+            --sidebar-width: 240px;
+            --chat-bg: #1a1a1a;
+            --chat-rounded: 20px;
+            --input-bg: #262626;
+            --input-border: #3a3a3a;
+            --bubble-user: #2563eb;
+            --text-primary: #e5e5e5;
+            --text-secondary: #9ca3af;
+            --text-muted: #6b7280;
+            --accent: #3b82f6;
+            --hover-gray: #2a2a2a;
+            --scrollbar-track: #1a1a1a;
+            --scrollbar-thumb: #4b5563;
+            --scrollbar-thumb-hover: #6b7280;
+            --sidebar-divider: #1f1f1f;
+            --transition-speed: 0.3s;
+            --input-transition: 0.5s;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: var(--body-bg);
+            color: var(--text-primary);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        #sidebar {
+            background: var(--sidebar-bg);
+            width: var(--sidebar-width);
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+            transition: width var(--transition-speed) ease-out;
+            perspective: 1000px;
+            flex-shrink: 0;
+            z-index: 10;
+        }
+
+        #sidebar.collapsed {
+            width: 0;
+        }
+
+        #sidebar-inner {
+            width: var(--sidebar-width);
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            transform-origin: left center;
+            transition: transform var(--transition-speed) ease-out, opacity var(--transition-speed) ease-out;
+            opacity: 1;
+            transform: scale(1);
+            background: var(--sidebar-bg);
+        }
+
+        #sidebar.collapsed #sidebar-inner {
+            transform: scale(0.9);
+            opacity: 0;
+        }
+
+        #sidebar-header {
+            padding: 20px 16px 16px 20px;
+            flex-shrink: 0;
+        }
+
+        #sidebar-header .logo {
+            font-size: 18px;
+            font-weight: 700;
+            color: #fff;
+            letter-spacing: -0.3px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            justify-content: space-between;
+        }
+
+        #sidebar-header .logo-left {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        #btn-settings {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            border: none;
+            background: transparent;
+            color: #6b7280;
+            cursor: pointer;
+            transition: color 0.2s, background 0.2s;
+            flex-shrink: 0;
+        }
+
+        #btn-settings:hover {
+            color: #d1d5db;
+            background: #1a1a1a;
+        }
+
+        #btn-settings svg {
+            width: 17px;
+            height: 17px;
+        }
+
+        #sidebar-header .logo-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #3b82f6;
+            display: inline-block;
+            box-shadow: 0 0 10px rgba(59, 130, 246, 0.6);
+        }
+
+        #sidebar-divider {
+            height: 1px;
+            background: var(--sidebar-divider);
+            margin: 0 16px;
+            flex-shrink: 0;
+        }
+
+        #session-list-area {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        #session-list-area::-webkit-scrollbar {
+            width: 4px;
+        }
+        #session-list-area::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        #session-list-area::-webkit-scrollbar-thumb {
+            background: #333;
+            border-radius: 10px;
+        }
+        #session-list-area::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+
+        #session-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        #btn-new-session {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            width: 100%;
+            padding: 10px 14px;
+            background: #1a1a1a;
+            color: #d1d5db;
+            border: 1px solid #2a2a2a;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            transition: background 0.2s, border-color 0.2s;
+            flex-shrink: 0;
+            font-family: inherit;
+            min-height: 42px;
+            box-sizing: border-box;
+            text-align: center;
+            line-height: 1;
+        }
+
+        #btn-new-session:hover {
+            background: #242424;
+            border-color: #3a3a3a;
+        }
+
+        #btn-new-session .plus-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 16px;
+            height: 16px;
+        }
+
+        #btn-new-session .plus-icon svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        .session-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 14px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: background 0.15s;
+            position: relative;
+            min-height: 42px;
+            height: 42px;
+            font-size: 13px;
+            line-height: 1.2;
+            color: #b0b0b0;
+            box-sizing: border-box;
+            width: 100%;
+        }
+
+        .session-item:hover {
+            background: #1a1a1a;
+        }
+        .session-item.active {
+            background: #1f1f1f;
+            color: #e5e5e5;
+        }
+
+        .session-item .session-preview {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            min-width: 0;
+            padding-right: 4px;
+        }
+
+        .session-item .btn-delete {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            color: transparent;
+            flex-shrink: 0;
+            transition: color 0.15s, background 0.15s;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .session-item:hover .btn-delete {
+            color: #6b7280;
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .session-item .btn-delete:hover {
+            color: #ef4444;
+            background: rgba(239, 68, 68, 0.1);
+        }
+
+        .btn-delete svg {
+            width: 15px;
+            height: 15px;
+        }
+
+        #main-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            padding: 12px 16px 16px 12px;
+            min-width: 0;
+            position: relative;
+            transition: margin-left var(--transition-speed) ease-out, padding-left var(--transition-speed) ease-out;
+            background: #000000;
+        }
+
+        #toggle-sidebar-btn {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            border: none;
+            background: transparent;
+            color: #c5c5c5;
+            cursor: pointer;
+            z-index: 20;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+            padding: 0;
+        }
+
+        #toggle-sidebar-btn:hover {
+            background: rgba(200, 200, 200, 0.15);
+        }
+
+        #toggle-sidebar-btn svg {
+            width: 20px;
+            height: 20px;
+            transition: transform 0.3s;
+        }
+
+        #sidebar.collapsed~#main-area #toggle-sidebar-btn svg {
+            transform: rotate(180deg);
+        }
+
+        #chat-container {
+            flex: 1;
+            background: var(--chat-bg);
+            border-radius: var(--chat-rounded);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+            min-height: 0;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+            padding: 5px;
+        }
+
+        #chat-box {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 58px 54px 100px 54px;
+            scroll-behavior: smooth;
+            scrollbar-width: thin;
+            scrollbar-color: #4b5563 transparent;
+            background: transparent;
+            position: relative;
+            z-index: 1;
+        }
+
+        #chat-box::-webkit-scrollbar {
+            width: 7px;
+        }
+        #chat-box::-webkit-scrollbar-track {
+            background: transparent;
+            border-radius: 10px;
+            border: 1px solid #2a2a2a;
+            margin: 4px 0;
+            border-radius: 10px;
+        }
+        #chat-box::-webkit-scrollbar-thumb {
+            background: #4b5563;
+            border-radius: 10px;
+            border: 1px solid #3a3a3a;
+            min-height: 40px;
+        }
+        #chat-box::-webkit-scrollbar-thumb:hover {
+            background: #6b7280;
+        }
+
+        .msg-wrapper {
+            display: flex;
+            animation: fadeInMsg 0.25s ease-out;
+        }
+        @keyframes fadeInMsg {
+            from {
+                opacity: 0;
+                transform: translateY(6px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .msg-wrapper.user {
+            justify-content: flex-end;
+        }
+
+        .msg-block {
+            width: 100%;
+            animation: fadeInMsg 0.25s ease-out;
+        }
+        .answer-block {
+            padding: 2px 0;
+        }
+
+        .session-container {
+            display: none;
+            flex-direction: column;
+            gap: 10px;
+            width: 100%;
+        }
+        .session-container.active {
+            display: flex;
+        }
+
+        .streaming-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #f59e0b;
+            flex-shrink: 0;
+            margin-right: 4px;
+            animation: dotPulse 1.4s ease-in-out infinite;
+        }
+
+        .msg-bubble {
+            max-width: 75%;
+            padding: 12px 16px;
+            border-radius: 14px;
+            font-size: 14px;
+            line-height: 1.6;
+            word-break: break-word;
+            white-space: pre-wrap;
+            user-select: text;
+            -webkit-user-select: text;
+        }
+        .msg-text {
+            font-size: 14px;
+            line-height: 1.7;
+            user-select: text;
+            -webkit-user-select: text;
+            overflow-wrap: anywhere;
+        }
+        .msg-text table {
+            border-collapse: collapse;
+            margin: 10px 0;
+            width: 100%;
+        }
+        .msg-text th, .msg-text td {
+            border: 1px solid #444;
+            padding: 8px 12px;
+            text-align: left;
+        }
+        .msg-text th {
+            background: #252525;
+            font-weight: 600;
+        }
+        .msg-text tr:nth-child(even) {
+            background: #1a1a1a;
+        }
+        .msg-text code {
+            background: #2a2a2a;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+            font-size: 13px;
+        }
+        .msg-text pre {
+            background: #111;
+            border: 1px solid #2e2e2e;
+            border-radius: 8px;
+            padding: 12px 16px;
+            overflow-x: auto;
+            margin: 10px 0;
+        }
+        .msg-text pre code {
+            background: none;
+            padding: 0;
+            border-radius: 0;
+        }
+        .msg-text blockquote {
+            border-left: 3px solid #555;
+            padding-left: 12px;
+            color: #9ca3af;
+            margin: 8px 0;
+        }
+        .msg-text ul, .msg-text ol {
+            padding-left: 20px;
+            margin: 6px 0;
+        }
+        .msg-text h1, .msg-text h2, .msg-text h3, .msg-text h4, .msg-text h5, .msg-text h6 {
+            margin: 12px 0 6px;
+            font-weight: 600;
+        }
+        .msg-text h1 { font-size: 1.4em; }
+        .msg-text h2 { font-size: 1.2em; }
+        .msg-text h3 { font-size: 1.1em; }
+        .msg-text hr {
+            border: none;
+            border-top: 1px solid #333;
+            margin: 12px 0;
+        }
+        .msg-text a {
+            color: #60a5fa;
+            text-decoration: underline;
+        }
+        .msg-text img {
+            max-width: 100%;
+            border-radius: 6px;
+        }
+        .msg-wrapper.user .msg-bubble {
+            background: var(--bubble-user);
+            color: #fff;
+            border-bottom-right-radius: 6px;
+        }
+
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+        @keyframes dotPulse {
+            0%, 80%, 100% { opacity: 0.15; transform: scale(0.6); }
+            40% { opacity: 1; transform: scale(1); }
+        }
+
+        .collapsible-header {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            width: fit-content;
+            padding: 3px 8px 3px 0;
+            cursor: pointer;
+            user-select: none;
+            -webkit-user-select: none;
+            font-size: 13px;
+            color: #9ca3af;
+            transition: color 0.2s ease;
+        }
+        .collapsible-header:hover {
+            color: #d1d5db;
+        }
+        .collapsible-header .chevron {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 14px;
+            height: 14px;
+            font-size: 9px;
+            line-height: 1;
+            color: #6b7280;
+            transition: transform 0.25s ease;
+            flex-shrink: 0;
+        }
+        .collapsible.expanded .chevron {
+            transform: rotate(90deg);
+        }
+        .collapsible-content {
+            overflow: hidden;
+            max-height: 0;
+            opacity: 0;
+            transition: max-height 0.3s ease, opacity 0.25s ease;
+        }
+        .collapsible.expanded .collapsible-content {
+            opacity: 1;
+        }
+
+        .thinking-block .block-label {
+            font-weight: 500;
+        }
+        .thinking-block .block-label.streaming {
+            background: linear-gradient(90deg, #6b7280 0%, #d1d5db 45%, #6b7280 100%);
+            background-size: 200% 100%;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: shimmer 2s ease-in-out infinite;
+        }
+        .thinking-text {
+            margin: 4px 0 6px 20px;
+            color: #8b8b8b;
+            font-size: 13px;
+            line-height: 1.6;
+            word-break: break-word;
+            border-left: 2px solid #333;
+            padding-left: 12px;
+        }
+        .thinking-text p { margin: 4px 0; }
+        .thinking-text code {
+            background: #1f1f1f;
+            padding: 1px 5px;
+            border-radius: 3px;
+            font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+            font-size: 12px;
+            color: #a0a0a0;
+        }
+        .thinking-text pre {
+            background: #111;
+            border: 1px solid #222;
+            border-radius: 6px;
+            padding: 8px 12px;
+            overflow-x: auto;
+            margin: 6px 0;
+        }
+        .thinking-text pre code {
+            background: none;
+            padding: 0;
+            border-radius: 0;
+        }
+        .thinking-text blockquote {
+            border-left: 2px solid #444;
+            padding-left: 10px;
+            color: #7a7a7a;
+            margin: 4px 0;
+        }
+        .thinking-text ul, .thinking-text ol {
+            padding-left: 18px;
+            margin: 4px 0;
+        }
+        .thinking-text h1, .thinking-text h2, .thinking-text h3, .thinking-text h4 {
+            margin: 8px 0 4px;
+            font-weight: 600;
+            color: #999;
+        }
+        .thinking-text h1 { font-size: 1.2em; }
+        .thinking-text h2 { font-size: 1.1em; }
+        .thinking-text h3 { font-size: 1.05em; }
+        .thinking-text hr {
+            border: none;
+            border-top: 1px solid #2a2a2a;
+            margin: 8px 0;
+        }
+        .thinking-text a {
+            color: #6b8cb0;
+        }
+
+        .tool-block .block-label,
+        .tool-block .tool-state {
+            font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+            font-size: 12.5px;
+            font-weight: 600;
+        }
+        .tool-block.running .block-label,
+        .tool-block.running .tool-state {
+            color: #f59e0b;
+            animation: labelPulse 1.2s ease-in-out infinite;
+        }
+        .tool-block.ok .block-label,
+        .tool-block.ok .tool-state {
+            color: #34d399;
+        }
+        .tool-block.error .block-label,
+        .tool-block.error .tool-state {
+            color: #f87171;
+        }
+        .tool-block.timeout .block-label,
+        .tool-block.timeout .tool-state {
+            color: #fb923c;
+        }
+        .tool-block.stopped .block-label,
+        .tool-block.stopped .tool-state {
+            color: #9ca3af;
+        }
+        @keyframes labelPulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.45; }
+        }
+        .tool-running {
+            margin: 4px 0 6px 20px;
+            color: #6b7280;
+            font-size: 12px;
+        }
+        .tool-section {
+            margin: 6px 0 10px 20px;
+        }
+        .tool-section-title {
+            font-size: 11px;
+            color: #6b7280;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+        .tool-args {
+            margin: 0;
+            padding: 10px 12px;
+            background: #111;
+            border: 1px solid #242424;
+            border-radius: 8px;
+            color: #9ca3af;
+            font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+            font-size: 12px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            word-break: break-all;
+            overflow: auto;
+            max-height: 200px;
+        }
+        .tool-result {
+            border-left: 2px solid #2e2e2e;
+            padding-left: 12px;
+            color: #c5c5c5;
+            font-size: 13px;
+            line-height: 1.55;
+            max-height: 360px;
+            overflow-y: auto;
+            overflow-x: hidden;
+            word-break: break-word;
+        }
+        .tool-block.error .tool-result {
+            color: #fca5a5;
+            border-left-color: #7f1d1d;
+        }
+        .tool-block.timeout .tool-result {
+            color: #fdba74;
+            border-left-color: #7c2d12;
+        }
+        .tool-block.stopped .tool-result {
+            color: #9ca3af;
+            border-left-color: #3f3f46;
+        }
+
+        #start-label {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 42px;
+            font-weight: 700;
+            color: #e5e5e5;
+            letter-spacing: -1px;
+            opacity: 1;
+            transition: opacity 0.45s ease, top 0.5s cubic-bezier(0.4, 0, 0.2, 1), transform 0.45s ease;
+            pointer-events: none;
+            text-align: center;
+            z-index: 10;
+        }
+        #start-label.initial {
+            top: calc(50% - 70px);
+        }
+        #start-label.hidden {
+            opacity: 0;
+            top: 20%;
+            pointer-events: none;
+        }
+
+        #input-wrapper {
+            position: absolute;
+            left: 54px;
+            right: 54px;
+            bottom: 16px;
+            z-index: 10;
+            transition: bottom 0.5s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.45s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-end;
+            pointer-events: auto;
+        }
+
+        #input-wrapper.initial {
+            bottom: calc(50% - 56px);
+        }
+        #input-wrapper.normal {
+            bottom: 16px;
+        }
+
+        #input-container {
+            position: relative;
+            width: 100%;
+            background: var(--input-bg);
+            border: 1px solid var(--input-border);
+            border-radius: 16px;
+            display: flex;
+            align-items: flex-end;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            margin-bottom: 0;
+        }
+        #input-container:focus-within {
+            border-color: #525252;
+            box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.03);
+        }
+
+        #user-input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            outline: none;
+            color: #e5e5e5;
+            font-size: 15px;
+            line-height: 1.5;
+            padding: 12px 40px 12px 16px;
+            resize: none;
+            overflow-y: auto;
+            font-family: inherit;
+            min-height: 46px;
+            max-height: 136px;
+            border-radius: 16px;
+            transition: height 0.1s ease;
+        }
+
+        #user-input::placeholder {
+            color: #525252;
+        }
+
+        #user-input::-webkit-scrollbar {
+            width: 0;
+            height: 0;
+            display: none;
+        }
+        #user-input::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        #user-input::-webkit-scrollbar-thumb {
+            background: transparent;
+        }
+        #user-input::-webkit-scrollbar-thumb:hover {
+            background: transparent;
+        }
+        #user-input {
+            scrollbar-width: none; /* Firefox */
+            -ms-overflow-style: none; /* IE and Edge */
+        }
+
+        #btn-send {
+            position: absolute;
+            right: 6px;
+            bottom: 7px;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s, opacity 0.2s;
+            flex-shrink: 0;
+            z-index: 5;
+            background: #3a3a3a;
+            pointer-events: none;
+            opacity: 0.5;
+        }
+        #btn-send.active {
+            background: #ffffff;
+            pointer-events: auto;
+            opacity: 1;
+            cursor: pointer;
+        }
+        #btn-send.active:hover {
+            background: #ffffff;
+        }
+        #btn-send svg {
+            width: 16px;
+            height: 16px;
+            transition: stroke 0.2s, opacity 0.2s;
+        }
+        #btn-send .icon-stop {
+            display: none;
+        }
+        #btn-send.active svg {
+            stroke: #1a1a1a;
+        }
+        #btn-send.active .icon-stop {
+            stroke: none;
+            fill: #1a1a1a;
+        }
+        #btn-send:not(.active) svg {
+            stroke: #888;
+        }
+        #btn-send.streaming {
+            background: #ef4444;
+            pointer-events: auto;
+            opacity: 1;
+            cursor: pointer;
+        }
+        #btn-send.streaming:hover {
+            background: #dc2626;
+        }
+        #btn-send.streaming .icon-send {
+            display: none;
+        }
+        #btn-send.streaming .icon-stop {
+            display: block;
+            fill: #fff;
+        }
+
+        #user-input:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        #settings-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.25s ease;
+        }
+
+        #settings-overlay.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        #settings-dialog {
+            background: #151515;
+            border: 1px solid #2a2a2a;
+            border-radius: 16px;
+            width: 400px;
+            max-width: 90vw;
+            padding: 28px 28px 22px;
+            box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+            transform: translateY(8px);
+            transition: transform 0.25s ease;
+        }
+
+        #settings-overlay.visible #settings-dialog {
+            transform: translateY(0);
+        }
+
+        #settings-dialog h2 {
+            font-size: 17px;
+            font-weight: 600;
+            color: #e5e5e5;
+            margin-bottom: 22px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        #settings-dialog h2 svg {
+            width: 18px;
+            height: 18px;
+            color: #9ca3af;
+        }
+
+        .settings-field {
+            margin-bottom: 16px;
+        }
+
+        .settings-row {
+            display: flex;
+            gap: 10px;
+        }
+
+        .settings-row .settings-field {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .settings-field label {
+            display: block;
+            font-size: 12px;
+            font-weight: 500;
+            color: #9ca3af;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .settings-field input {
+            width: 100%;
+            padding: 10px 14px;
+            background: #1a1a1a;
+            border: 1px solid #2a2a2a;
+            border-radius: 10px;
+            color: #e5e5e5;
+            font-size: 14px;
+            font-family: inherit;
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .settings-field input:focus {
+            border-color: #525252;
+            box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.03);
+        }
+
+        .settings-field input::placeholder {
+            color: #4a4a4a;
+        }
+
+        .reasoning-toggle {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 6px;
+        }
+
+        .reasoning-toggle button {
+            flex: 1;
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            border: 1px solid #2a2a2a;
+            background: #1a1a1a;
+            color: #9ca3af;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+
+        .reasoning-toggle button.active {
+            background: #ffffff;
+            color: #0a0a0a;
+            border-color: #ffffff;
+        }
+
+        .reasoning-toggle button:not(.active):hover {
+            background: #242424;
+            color: #d1d5db;
+        }
+
+        .test-result {
+            display: none;
+            align-items: center;
+            gap: 5px;
+            min-width: 0;
+            font-size: 13px;
+            font-weight: 500;
+            color: #6b7280;
+        }
+
+        .test-result svg {
+            display: none;
+            flex-shrink: 0;
+            width: 15px;
+            height: 15px;
+        }
+
+        .test-result span {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            line-height: 1.35;
+            word-break: break-word;
+        }
+
+        .settings-actions .btn-test {
+            flex-shrink: 0;
+            padding: 8px 18px;
+            border: none;
+            background: #1f1f1f;
+            color: #9ca3af;
+        }
+
+        .settings-actions .btn-test:hover:not(:disabled) {
+            background: #2a2a2a;
+            color: #d1d5db;
+        }
+
+        .settings-actions .btn-test:disabled {
+            opacity: 0.5;
+            cursor: default;
+        }
+
+        .settings-actions .btn-cancel {
+            margin-left: auto;
+        }
+
+        .test-result.ok,
+        .test-result.err,
+        .test-result.pending {
+            display: flex;
+        }
+
+        .test-result.ok {
+            color: #34d399;
+        }
+
+        .test-result.ok .ico-ok {
+            display: block;
+        }
+
+        .test-result.err {
+            color: #ef4444;
+        }
+
+        .test-result.err .ico-err {
+            display: block;
+        }
+
+        .settings-actions {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 22px;
+        }
+
+        .settings-actions button {
+            padding: 8px 18px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            border: none;
+            font-family: inherit;
+            transition: background 0.2s, opacity 0.2s;
+        }
+
+        .btn-cancel {
+            background: #1f1f1f;
+            color: #9ca3af;
+            border: 1px solid #2a2a2a;
+        }
+
+        .btn-cancel:hover {
+            background: #2a2a2a;
+            color: #d1d5db;
+        }
+
+        .btn-save {
+            background: #ffffff;
+            color: #0a0a0a;
+        }
+
+        .btn-save:hover {
+            opacity: 0.85;
+        }
+
+        #context-indicator {
+            position: absolute;
+            top: 11px;
+            right: 12px;
+            width: 38px;
+            height: 38px;
+            cursor: pointer;
+            z-index: 15;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: background 0.2s;
+            pointer-events: auto;
+        }
+        #context-indicator:hover {
+            background: rgba(255,255,255,0.06);
+        }
+        #context-indicator svg {
+            position: absolute;
+            width: 38px;
+            height: 38px;
+            pointer-events: none;
+        }
+        .ring-bg {
+            opacity: 0.3;
+        }
+        #context-ring {
+            transition: stroke 0.5s ease, stroke-dashoffset 0.5s ease;
+        }
+        #context-percent {
+            position: relative;
+            font-size: 9px;
+            font-weight: 700;
+            color: #9ca3af;
+            pointer-events: none;
+            z-index: 1;
+            line-height: 1;
+        }
+
+        #toast {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #ef4444;
+            color: #fff;
+            padding: 12px 24px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 500;
+            z-index: 200;
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            box-shadow: 0 4px 16px rgba(239, 68, 68, 0.4);
+            pointer-events: none;
+        }
+        #toast.toast-hidden {
+            opacity: 0;
+            transform: translateX(-50%) translateY(-12px);
+        }
+        #toast.toast-visible {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        #ctxinfo-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.6);
+            z-index: 150;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.25s ease;
+        }
+        #ctxinfo-overlay.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        #ctxinfo-dialog {
+            background: #151515;
+            border: 1px solid #2a2a2a;
+            border-radius: 16px;
+            width: 340px;
+            max-width: 90vw;
+            padding: 18px 18px 14px;
+            box-shadow: 0 16px 48px rgba(0,0,0,0.5);
+            transform: translateY(8px);
+            transition: transform 0.25s ease;
+            display: flex;
+            flex-direction: column;
+        }
+        #ctxinfo-overlay.visible #ctxinfo-dialog {
+            transform: translateY(0);
+        }
+        .ctxinfo-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+        .ctxinfo-title {
+            color: #e5e5e5;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        .ctxinfo-source {
+            font-size: 11px;
+            line-height: 1.6;
+            padding: 1px 8px;
+            border-radius: 999px;
+            border: 1px solid #2a2a2a;
+            color: #9ca3af;
+            white-space: nowrap;
+        }
+        .ctxinfo-source.server {
+            color: #34d399;
+            border-color: rgba(52, 211, 153, 0.35);
+        }
+        .ctxinfo-hero {
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+        }
+        #ctxinfo-percent {
+            font-size: 22px;
+            font-weight: 700;
+            color: #e5e5e5;
+            line-height: 1.1;
+        }
+        #ctxinfo-token-count {
+            font-size: 12px;
+            color: #9ca3af;
+            font-variant-numeric: tabular-nums;
+        }
+        .ctxinfo-bar {
+            height: 4px;
+            border-radius: 999px;
+            background: #242424;
+            overflow: hidden;
+            margin: 10px 0 14px;
+        }
+        .ctxinfo-bar i {
+            display: block;
+            height: 100%;
+            width: 0;
+            border-radius: 999px;
+            transition: width 0.3s ease, background 0.3s ease;
+        }
+        .ctxinfo-rows {
+            display: flex;
+            flex-direction: column;
+            gap: 7px;
+        }
+        .ctxinfo-row {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 12px;
+            font-size: 12px;
+        }
+        .ctxinfo-label {
+            color: #9ca3af;
+            flex: 0 0 auto;
+        }
+        .ctxinfo-value {
+            color: #e5e5e5;
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+        }
+        .ctxinfo-row.note .ctxinfo-value {
+            color: #6b7280;
+            font-size: 11px;
+            line-height: 1.5;
+        }
+        #ctxinfo-actions {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 16px;
+        }
+        #ctxinfo-actions button {
+            padding: 8px 18px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            border: none;
+            font-family: inherit;
+            transition: background 0.2s, opacity 0.2s;
+        }
+
+        @media (max-width: 768px) {
+            #sidebar {
+                width: 240px;
+            }
+            #sidebar.collapsed {
+                width: 0;
+            }
+            #sidebar-inner {
+                width: 240px;
+            }
+            :root {
+                --sidebar-width: 240px;
+            }
+            #chat-box {
+                padding: 52px 42px 90px 42px;
+            }
+            #input-wrapper {
+                left: 42px;
+                right: 42px;
+            }
+            #chat-container {
+                border-radius: 12px;
+            }
+            #toggle-sidebar-btn {
+                top: 16px;
+                left: 10px;
+            }
+            #context-indicator {
+                top: 8px;
+                right: 6px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <aside id="sidebar">
+        <div id="sidebar-inner">
+            <div id="sidebar-header">
+                <div class="logo">
+                    <span class="logo-left">
+                        <span class="logo-dot"></span> Mini Agent
+                    </span>
+                    <button id="btn-settings" onclick="openSettings()" title="设置">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="3"></circle>
+                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div id="sidebar-divider"></div>
+            <div id="session-list-area">
+                <button id="btn-new-session" onclick="createSession()" title="新建会话">
+                    <span class="plus-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                        </svg>
+                    </span><span>新建对话</span>
+                </button>
+                <div id="session-list"></div>
+            </div>
+        </div>
+    </aside>
+
+    <div id="main-area">
+        <button id="toggle-sidebar-btn" onclick="toggleSidebar()" title="切换侧边栏">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="15 18 9 12 15 6"></polyline>
+            </svg>
+        </button>
+
+        <div id="chat-container">
+            <div id="chat-box"></div>
+
+            <div id="context-indicator" title="上下文详情" onclick="handleContextRingClick()">
+                <svg viewBox="0 0 48 48">
+                    <circle class="ring-bg" cx="24" cy="24" r="20"
+                        fill="none" stroke="#2a2a2a" stroke-width="3"/>
+                    <circle id="context-ring" cx="24" cy="24" r="20"
+                        fill="none" stroke="#34d399" stroke-width="3"
+                        stroke-linecap="round"
+                        stroke-dasharray="125.66" stroke-dashoffset="125.66"
+                        transform="rotate(-90 24 24)"/>
+                </svg>
+                <span id="context-percent">0%</span>
+            </div>
+
+            <div id="start-label" class="initial">Start</div>
+            <div id="input-wrapper" class="initial">
+                <div id="input-container">
+                    <textarea id="user-input" rows="1" placeholder="输入消息..." onkeydown="handleKeyDown(event)"></textarea>
+                    <button id="btn-send" onclick="handleSendOrStop()" title="发送">
+                        <svg class="icon-send" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="12" y1="19" x2="12" y2="5"></line>
+                            <polyline points="5 12 12 5 19 12"></polyline>
+                        </svg>
+                        <svg class="icon-stop" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                            <rect x="6" y="6" width="12" height="12" rx="2"></rect>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentSessionId = null;
+        let sidebarCollapsed = false;
+
+        const sessionStates = new Map();
+
+        function getSessionState(sessionId) {
+            if (!sessionStates.has(sessionId)) {
+                sessionStates.set(sessionId, {
+                    isStreaming: false,
+                    abortController: null,
+                    currentAnswerEl: null,
+                    currentAnswerRaw: '',
+                    currentThinkingBlock: null,
+                    currentThinkingTextEl: null,
+                    currentThinkingRaw: '',
+                    historyLoaded: false,
+                    hasMessages: false,
+                    lastUsage: null,
+                });
+            }
+            return sessionStates.get(sessionId);
+        }
+
+        function getOrCreateContainer(sessionId) {
+            let state = getSessionState(sessionId);
+            if (!state.container || !document.getElementById(`session-${sessionId}`)) {
+                const container = document.createElement('div');
+                container.id = `session-${sessionId}`;
+                container.className = 'session-container';
+                chatBox.appendChild(container);
+                state.container = container;
+            }
+            return state.container;
+        }
+
+        function getCurrentState() {
+            if (!currentSessionId) return null;
+            return getSessionState(currentSessionId);
+        }
+
+        const sidebar = document.getElementById('sidebar');
+        const sidebarInner = document.getElementById('sidebar-inner');
+        const toggleSidebarBtn = document.getElementById('toggle-sidebar-btn');
+        const chatBox = document.getElementById('chat-box');
+        const userInput = document.getElementById('user-input');
+        const btnSend = document.getElementById('btn-send');
+        const inputWrapper = document.getElementById('input-wrapper');
+        const startLabel = document.getElementById('start-label');
+        const sessionListEl = document.getElementById('session-list');
+
+        window.onload = async () => {
+            await loadSessions();
+            updateInputState();
+            setupTextareaAutoResize();
+            setInputInitialState(true);
+            updateContextRing();
+        };
+
+        function toggleSidebar() {
+            sidebarCollapsed = !sidebarCollapsed;
+            if (sidebarCollapsed) {
+                sidebar.classList.add('collapsed');
+                toggleSidebarBtn.querySelector('svg').style.transform = 'rotate(180deg)';
+            } else {
+                sidebar.classList.remove('collapsed');
+                toggleSidebarBtn.querySelector('svg').style.transform = 'rotate(0deg)';
+            }
+        }
+
+        function setupTextareaAutoResize() {
+            userInput.addEventListener('input', () => {
+                autoResizeTextarea();
+                updateInputState();
+            });
+        }
+
+        function autoResizeTextarea() {
+            userInput.style.height = 'auto';
+            const newHeight = Math.min(userInput.scrollHeight, 136);
+            userInput.style.height = newHeight + 'px';
+        }
+
+        function updateInputState() {
+            const hasContent = userInput.value.trim().length > 0;
+            const state = getCurrentState();
+            const streaming = state ? state.isStreaming : false;
+
+            if (streaming) {
+                btnSend.classList.remove('active');
+                btnSend.classList.add('streaming');
+                btnSend.title = '停止生成';
+            } else {
+                btnSend.classList.remove('streaming');
+                btnSend.title = '发送';
+                if (hasContent) {
+                    btnSend.classList.add('active');
+                } else {
+                    btnSend.classList.remove('active');
+                }
+            }
+            userInput.disabled = streaming;
+            if (streaming) {
+                userInput.placeholder = 'AI 回复中...';
+            } else {
+                userInput.placeholder = '输入消息...';
+            }
+        }
+
+        function setInputInitialState(isInitial) {
+            if (isInitial) {
+                startLabel.classList.remove('hidden');
+                startLabel.classList.add('initial');
+                inputWrapper.classList.add('initial');
+                inputWrapper.classList.remove('normal');
+            } else {
+                startLabel.classList.remove('initial');
+                inputWrapper.classList.remove('initial');
+                inputWrapper.classList.add('normal');
+            }
+        }
+
+        function transitionToNormal() {
+            startLabel.classList.remove('initial');
+            startLabel.classList.add('hidden');
+            inputWrapper.classList.remove('initial');
+            inputWrapper.classList.add('normal');
+        }
+
+        function reflectSessionInputState() {
+            const state = getCurrentState();
+            if (!state || !state.hasMessages) {
+                setInputInitialState(true);
+            } else {
+                transitionToNormalNoAnim();
+            }
+            updateInputState();
+        }
+
+        function handleKeyDown(event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                handleSendOrStop();
+            }
+        }
+
+        async function loadSessions() {
+            try {
+                const res = await fetch('/api/sessions');
+                const data = await res.json();
+                sessionListEl.innerHTML = '';
+                if (data.sessions && data.sessions.length > 0) {
+                    data.sessions.forEach(s => {
+                        const div = document.createElement('div');
+                        div.className = `session-item${s.id === currentSessionId ? ' active' : ''}`;
+                        div.setAttribute('data-session-id', s.id);
+                        div.onclick = (e) => {
+                            if (!e.target.closest('.btn-delete')) {
+                                switchSession(s.id);
+                            }
+                        };
+
+                        const ss = sessionStates.get(s.id);
+                        if (ss && ss.isStreaming) {
+                            const dot = document.createElement('span');
+                            dot.className = 'streaming-dot';
+                            dot.title = '正在响应中';
+                            div.appendChild(dot);
+                        }
+
+                        const textSpan = document.createElement('span');
+                        textSpan.className = 'session-preview';
+                        textSpan.innerText = s.preview || '新对话';
+
+                        const delBtn = document.createElement('button');
+                        delBtn.className = 'btn-delete';
+                        delBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="3 6 5 6 21 6"></polyline>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                            <line x1="10" y1="11" x2="10" y2="17"></line>
+                            <line x1="14" y1="11" x2="14" y2="17"></line>
+                        </svg>`;
+                        delBtn.onclick = (e) => { e.stopPropagation(); deleteSession(s.id); };
+                        delBtn.title = '删除会话';
+
+                        div.appendChild(textSpan);
+                        div.appendChild(delBtn);
+                        sessionListEl.appendChild(div);
+                    });
+                }
+            } catch (err) {
+                console.error('加载会话列表失败:', err);
+            }
+        }
+
+        async function createSession() {
+            if (currentSessionId) {
+                const prevState = getSessionState(currentSessionId);
+                if (prevState) prevState._scrollTop = chatBox.scrollTop;
+            }
+
+            try {
+                const res = await fetch('/api/sessions', { method: 'POST' });
+                const data = await res.json();
+                const newId = data.session_id;
+
+                document.querySelectorAll('.session-container').forEach(c => c.classList.remove('active'));
+
+                currentSessionId = newId;
+                getOrCreateContainer(newId).classList.add('active');
+                getSessionState(newId).hasMessages = false;
+
+                userInput.value = '';
+                setInputInitialState(true);
+                updateInputState();
+                autoResizeTextarea();
+                dismissToast();
+                updateContextRing();
+                await loadSessions();
+            } catch (err) {
+                console.error('创建会话失败:', err);
+            }
+        }
+
+        async function switchSession(sessionId) {
+            if (sessionId === currentSessionId) return;
+
+            if (currentSessionId) {
+                const prevState = getSessionState(currentSessionId);
+                if (prevState) prevState._scrollTop = chatBox.scrollTop;
+            }
+
+            document.querySelectorAll('.session-container').forEach(c => c.classList.remove('active'));
+
+            currentSessionId = sessionId;
+            const container = getOrCreateContainer(sessionId);
+            container.classList.add('active');
+
+            const state = getSessionState(sessionId);
+
+            if (!state.historyLoaded) {
+                try {
+                    const res = await fetch(`/api/history/${sessionId}`);
+                    const d = await res.json();
+                    if (d.history && d.history.length > 0) {
+                        state.hasMessages = true;
+                        renderHistory(container, d.history);
+                    }
+                    state.historyLoaded = true;
+                } catch (err) {
+                    console.error('加载历史失败:', err);
+                }
+            }
+
+            requestAnimationFrame(() => {
+                if (state._scrollTop !== undefined) {
+                    chatBox.scrollTop = state._scrollTop;
+                } else if (state.hasMessages) {
+                    chatBox.scrollTop = chatBox.scrollHeight;
+                }
+            });
+
+            reflectSessionInputState();
+            userInput.value = '';
+            autoResizeTextarea();
+            dismissToast();
+            await loadSessions();
+            updateContextRing();
+        }
+
+        function transitionToNormalNoAnim() {
+            startLabel.style.transition = 'none';
+            inputWrapper.style.transition = 'none';
+            startLabel.classList.remove('initial');
+            startLabel.classList.add('hidden');
+            inputWrapper.classList.remove('initial');
+            inputWrapper.classList.add('normal');
+            void startLabel.offsetHeight;
+            void inputWrapper.offsetHeight;
+            startLabel.style.transition = '';
+            inputWrapper.style.transition = '';
+        }
+
+        async function deleteSession(sessionId) {
+            const state = sessionStates.get(sessionId);
+            if (state && state.abortController) {
+                state.abortController.abort();
+                state.abortController = null;
+                state.isStreaming = false;
+            }
+
+            try {
+                await fetch(`/api/sessions/${sessionId}`, { method: 'DELETE' });
+            } catch (err) {
+                console.error('删除会话失败:', err);
+            }
+
+            const container = document.getElementById(`session-${sessionId}`);
+            if (container) container.remove();
+            sessionStates.delete(sessionId);
+
+            if (currentSessionId === sessionId) {
+                currentSessionId = null;
+                document.querySelectorAll('.session-container').forEach(c => c.classList.remove('active'));
+                userInput.value = '';
+                setInputInitialState(true);
+                updateInputState();
+                autoResizeTextarea();
+                updateContextRing();
+            }
+            dismissToast();
+            await loadSessions();
+        }
+
+        function appendUserMessage(container, content) {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'msg-wrapper user';
+            const bubble = document.createElement('div');
+            bubble.className = 'msg-bubble';
+            const textEl = document.createElement('div');
+            textEl.className = 'msg-text';
+            textEl.innerHTML = escapeHtml(content || '').replace(/\n/g, '<br>');
+            bubble.appendChild(textEl);
+            wrapper.appendChild(bubble);
+            container.appendChild(wrapper);
+            scrollToBottom(true);
+            return textEl;
+        }
+
+        function appendAnswerBlock(container) {
+            const block = document.createElement('div');
+            block.className = 'msg-block answer-block';
+            const textEl = document.createElement('div');
+            textEl.className = 'msg-text';
+            block.appendChild(textEl);
+            container.appendChild(block);
+            scrollToBottom();
+            return textEl;
+        }
+
+        function finalizeThinking(block) {
+            if (!block || block.classList.contains('done')) return;
+            block.classList.add('done');
+            const label = block.querySelector('.block-label');
+            if (!label) return;
+            label.classList.remove('streaming');
+            label.textContent = '思考';
+        }
+
+        function createThinkingBlock(container, initialContent = '', isDone = false) {
+            const block = document.createElement('div');
+            block.className = 'msg-block collapsible thinking-block' + (isDone ? ' done' : '');
+            const header = document.createElement('div');
+            header.className = 'collapsible-header';
+            header.onclick = function() { toggleBlock(this); };
+            const chevron = document.createElement('span');
+            chevron.className = 'chevron';
+            chevron.textContent = '▶';
+            const label = document.createElement('span');
+            label.className = 'block-label' + (isDone ? '' : ' streaming');
+            label.textContent = isDone ? '思考' : '思考中...';
+            header.appendChild(chevron);
+            header.appendChild(label);
+            const content = document.createElement('div');
+            content.className = 'collapsible-content';
+            const text = document.createElement('div');
+            text.className = 'thinking-text';
+            text.innerHTML = renderMarkdown(initialContent || '');
+            content.appendChild(text);
+            block.appendChild(header);
+            block.appendChild(content);
+            container.appendChild(block);
+            scrollToBottom();
+            return { block, text };
+        }
+
+        function toggleBlock(header) {
+            const block = header.closest('.collapsible');
+            if (!block) return;
+            const content = block.querySelector('.collapsible-content');
+            if (!content) return;
+            const isExpanded = block.classList.contains('expanded');
+
+            if (block._transitionHandler) {
+                content.removeEventListener('transitionend', block._transitionHandler);
+                block._transitionHandler = null;
+            }
+
+            if (isExpanded) {
+                content.style.maxHeight = content.scrollHeight + 'px';
+                content.offsetHeight;
+                block.classList.remove('expanded');
+                content.style.maxHeight = '0px';
+            } else {
+                block.classList.add('expanded');
+                content.style.maxHeight = content.scrollHeight + 'px';
+                const handler = function() {
+                    content.style.maxHeight = 'none';
+                    content.removeEventListener('transitionend', handler);
+                    block._transitionHandler = null;
+                };
+                block._transitionHandler = handler;
+                content.addEventListener('transitionend', handler);
+            }
+        }
+
+        const TOOL_STATES = {
+            running: { cls: 'running', text: 'running' },
+            ok: { cls: 'ok', text: 'succeed' },
+            error: { cls: 'error', text: 'failed' },
+            timeout: { cls: 'timeout', text: 'timeout' },
+            stopped: { cls: 'stopped', text: 'stopped' },
+            success: { cls: 'ok', text: 'succeed' },
+            fail: { cls: 'error', text: 'failed' }
+        };
+
+        function createToolBlock(container, toolId, toolName) {
+            const block = document.createElement('div');
+            block.id = `tool-${toolId}`;
+            block.className = 'msg-block collapsible tool-block running';
+            const header = document.createElement('div');
+            header.className = 'collapsible-header';
+            header.onclick = function() { toggleBlock(this); };
+            const chevron = document.createElement('span');
+            chevron.className = 'chevron';
+            chevron.textContent = '▶';
+            const label = document.createElement('span');
+            label.className = 'block-label';
+            label.textContent = toolName;
+            const state = document.createElement('span');
+            state.className = 'tool-state';
+            state.textContent = TOOL_STATES.running.text;
+            header.appendChild(chevron);
+            header.appendChild(label);
+            header.appendChild(state);
+            const content = document.createElement('div');
+            content.className = 'collapsible-content';
+            const running = document.createElement('div');
+            running.className = 'tool-running';
+            running.textContent = 'running...';
+            content.appendChild(running);
+            block.appendChild(header);
+            block.appendChild(content);
+            container.appendChild(block);
+            scrollToBottom();
+        }
+
+        function updateToolBlock(toolId, toolName, toolArgs, result, status) {
+            const block = document.getElementById(`tool-${toolId}`);
+            if (!block) return;
+
+            const state = TOOL_STATES[status] || TOOL_STATES.error;
+            block.classList.remove('running', 'ok', 'error', 'timeout', 'stopped', 'success', 'fail');
+            block.classList.add(state.cls);
+            const stateEl = block.querySelector('.tool-state');
+            if (stateEl) stateEl.textContent = state.text;
+
+            const content = block.querySelector('.collapsible-content');
+            content.innerHTML = '';
+
+            let argsStr;
+            try {
+                argsStr = JSON.stringify(typeof toolArgs === 'string' ? JSON.parse(toolArgs) : toolArgs, null, 2);
+            } catch (e) {
+                argsStr = String(toolArgs || '');
+            }
+            const argsSection = document.createElement('div');
+            argsSection.className = 'tool-section';
+            const argsTitle = document.createElement('div');
+            argsTitle.className = 'tool-section-title';
+            argsTitle.textContent = '调用参数';
+            const argsPre = document.createElement('pre');
+            argsPre.className = 'tool-args';
+            argsPre.textContent = argsStr;
+            argsSection.appendChild(argsTitle);
+            argsSection.appendChild(argsPre);
+            content.appendChild(argsSection);
+
+            let displayResult = result || '(无输出)';
+            if (displayResult.length > 3000) displayResult = displayResult.substring(0, 3000) + '\n\n...';
+            const resultSection = document.createElement('div');
+            resultSection.className = 'tool-section';
+            const resultTitle = document.createElement('div');
+            resultTitle.className = 'tool-section-title';
+            resultTitle.textContent = '输出';
+            const resultDiv = document.createElement('div');
+            resultDiv.className = 'tool-result msg-text';
+            resultDiv.innerHTML = renderMarkdown(displayResult);
+            resultSection.appendChild(resultTitle);
+            resultSection.appendChild(resultDiv);
+            content.appendChild(resultSection);
+
+            if (block.classList.contains('expanded')) {
+                content.style.maxHeight = 'none';
+            }
+            scrollToBottom();
+        }
+
+        function isNearBottom() {
+            const threshold = 80;
+            return (chatBox.scrollHeight - chatBox.scrollTop - chatBox.clientHeight) < threshold;
+        }
+
+        function scrollToBottom(force = false) {
+            if (force || isNearBottom()) {
+                requestAnimationFrame(() => {
+                    chatBox.scrollTop = chatBox.scrollHeight;
+                });
+            }
+        }
+
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        function renderMarkdown(text) {
+            if (!text) return '';
+            if (typeof marked === 'undefined') return escapeHtml(text).replace(/\n/g, '<br>');
+            try {
+                return marked.parse(text);
+            } catch (e) {
+                return escapeHtml(text).replace(/\n/g, '<br>');
+            }
+        }
+
+        function renderHistory(container, history) {
+            let pendingToolCalls = {};
+            container.innerHTML = '';
+
+            history.forEach(msg => {
+                if (msg.role === 'user') {
+                    appendUserMessage(container, msg.content);
+                } else if (msg.role === 'assistant') {
+                    if (msg.reasoning_content) {
+                        createThinkingBlock(container, msg.reasoning_content, true);
+                    }
+                    if (msg.content) {
+                        const textEl = appendAnswerBlock(container);
+                        textEl.innerHTML = renderMarkdown(msg.content);
+                    }
+                    if (msg.tool_calls) {
+                        msg.tool_calls.forEach(tc => {
+                            pendingToolCalls[tc.id] = { name: tc.function.name, args: tc.function.arguments };
+                            createToolBlock(container, tc.id, tc.function.name);
+                        });
+                    }
+                } else if (msg.role === 'tool') {
+                    if (pendingToolCalls[msg.tool_call_id]) {
+                        const tcInfo = pendingToolCalls[msg.tool_call_id];
+                        updateToolBlock(msg.tool_call_id, tcInfo.name, tcInfo.args, msg.content, msg.status || 'ok');
+                        delete pendingToolCalls[msg.tool_call_id];
+                    }
+                }
+            });
+            scrollToBottom(true);
+        }
+
+        function handleSendOrStop() {
+            const state = getCurrentState();
+            if (state && state.isStreaming) {
+                stopStreaming();
+            } else {
+                sendMessage();
+            }
+        }
+
+        async function stopStreaming() {
+            const sessionId = currentSessionId;
+            if (!sessionId) return;
+            const state = getSessionState(sessionId);
+            if (!state || !state.isStreaming) return;
+
+            try {
+                const res = await fetch(`/api/chat/${sessionId}/stop`, { method: 'POST' });
+                if (!res.ok) {
+                    showToast('停止请求失败');
+                    return;
+                }
+            } catch (err) {
+                console.error('停止生成失败:', err);
+                showToast('停止请求失败');
+                return;
+            }
+
+            setTimeout(() => {
+                const current = getSessionState(sessionId);
+                if (current && current.isStreaming && current.abortController) {
+                    current.abortController.abort();
+                }
+            }, 5000);
+        }
+
+        async function sendMessage() {
+            const message = userInput.value.trim();
+            if (!message) return;
+
+            const state = getCurrentState();
+            if (state && state.isStreaming) return;
+
+            if (!currentSessionId) {
+                try {
+                    const res = await fetch('/api/sessions', { method: 'POST' });
+                    const data = await res.json();
+                    currentSessionId = data.session_id;
+                    getOrCreateContainer(currentSessionId).classList.add('active');
+                    dismissToast();
+                    updateContextRing();
+                    await loadSessions();
+                } catch (err) {
+                    console.error('创建会话失败:', err);
+                    return;
+                }
+            }
+
+            const sessionId = currentSessionId;
+            const sessionState = getSessionState(sessionId);
+            const container = getOrCreateContainer(sessionId);
+
+            userInput.value = '';
+            updateInputState();
+            userInput.style.height = 'auto';
+            autoResizeTextarea();
+
+            if (!sessionState.hasMessages) {
+                sessionState.hasMessages = true;
+                transitionToNormal();
+            }
+
+            sessionState.isStreaming = true;
+            sessionState.abortController = new AbortController();
+            sessionState.currentAnswerEl = null;
+            sessionState.currentAnswerRaw = '';
+            sessionState.currentThinkingBlock = null;
+            sessionState.currentThinkingTextEl = null;
+            sessionState.currentThinkingRaw = '';
+            updateInputState();
+
+            appendUserMessage(container, message);
+            sessionState.historyLoaded = true;
+            loadSessions();
+
+            try {
+                const response = await fetch(`/api/chat/${sessionId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message }),
+                    signal: sessionState.abortController.signal
+                });
+
+                if (!response.ok) {
+                    let errorMessage = '请求失败';
+                    try {
+                        const errorData = await response.json();
+                        errorMessage = errorData.message || errorMessage;
+                    } catch (e) { }
+                    showToast(errorMessage);
+                    sessionState.isStreaming = false;
+                    sessionState.abortController = null;
+                    updateInputState();
+                    updateContextRing();
+                    loadSessions();
+                    return;
+                }
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+
+                (async function readStream() {
+                    while (true) {
+                        let done, value;
+                        try {
+                            const result = await reader.read();
+                            done = result.done;
+                            value = result.value;
+                        } catch (err) {
+                            if (err.name === 'AbortError') {
+                                console.log(`会话 ${sessionId} 的流式请求已被取消`);
+                            } else {
+                                console.error('读取流错误:', err);
+                            }
+                            const sState2 = getSessionState(sessionId);
+                            sState2.isStreaming = false;
+                            sState2.abortController = null;
+                            updateInputState();
+                            updateContextRing();
+                            loadSessions();
+                            return;
+                        }
+
+                        const sState = getSessionState(sessionId);
+
+                        if (done) {
+                            sState.isStreaming = false;
+                            sState.abortController = null;
+                            if (sState.currentAnswerEl && sState.currentAnswerRaw) {
+                                sState.currentAnswerEl.innerHTML = renderMarkdown(sState.currentAnswerRaw);
+                            }
+                            finalizeThinking(sState.currentThinkingBlock);
+                            sState.currentThinkingBlock = null;
+                            sState.currentThinkingTextEl = null;
+                            sState.currentThinkingRaw = '';
+                            sState.currentAnswerEl = null;
+                            sState.currentAnswerRaw = '';
+                            updateInputState();
+                            updateContextRing();
+                            loadSessions();
+                            return;
+                        }
+
+                        buffer += decoder.decode(value, { stream: true });
+                        const lines = buffer.split('\n');
+                        buffer = lines.pop();
+
+                        for (const line of lines) {
+                            if (line.startsWith('data: ')) {
+                                try {
+                                    const data = JSON.parse(line.substring(6));
+
+                                    if (data.type === 'thinking') {
+                                        sState.currentThinkingRaw += data.content;
+                                        if (!sState.currentThinkingBlock) {
+                                            const created = createThinkingBlock(container, sState.currentThinkingRaw);
+                                            sState.currentThinkingBlock = created.block;
+                                            sState.currentThinkingTextEl = created.text;
+                                        } else {
+                                            sState.currentThinkingTextEl.innerHTML = renderMarkdown(sState.currentThinkingRaw);
+                                        }
+                                        if (sState.currentThinkingBlock.classList.contains('expanded')) {
+                                            const contentEl = sState.currentThinkingBlock.querySelector('.collapsible-content');
+                                            if (contentEl.style.maxHeight !== 'none') {
+                                                contentEl.style.maxHeight = contentEl.scrollHeight + 'px';
+                                            }
+                                        }
+                                        scrollToBottom();
+                                    } else if (data.type === 'delta') {
+                                        finalizeThinking(sState.currentThinkingBlock);
+                                        sState.currentThinkingBlock = null;
+                                        sState.currentThinkingTextEl = null;
+                                        sState.currentThinkingRaw = '';
+                                        if (!sState.currentAnswerEl) {
+                                            sState.currentAnswerEl = appendAnswerBlock(container);
+                                        }
+                                        sState.currentAnswerRaw += data.content;
+                                        sState.currentAnswerEl.innerHTML = renderMarkdown(sState.currentAnswerRaw);
+                                        scrollToBottom();
+                                    } else if (data.type === 'tool_start') {
+                                        finalizeThinking(sState.currentThinkingBlock);
+                                        sState.currentThinkingBlock = null;
+                                        sState.currentThinkingTextEl = null;
+                                        sState.currentThinkingRaw = '';
+                                        sState.currentAnswerEl = null;
+                                        sState.currentAnswerRaw = '';
+                                        createToolBlock(container, data.id, data.name);
+                                    } else if (data.type === 'tool_end') {
+                                        sState.currentAnswerEl = null;
+                                        sState.currentAnswerRaw = '';
+                                        updateToolBlock(data.id, data.name, data.args, data.result, data.status);
+                                    } else if (data.type === 'usage') {
+                                        sState.lastUsage = data;
+                                        applyContextUsage(data);
+                                    } else if (data.type === 'done' || data.type === 'stopped') {
+                                        if (sState.currentAnswerEl && sState.currentAnswerRaw) {
+                                            sState.currentAnswerEl.innerHTML = renderMarkdown(sState.currentAnswerRaw);
+                                        }
+                                        finalizeThinking(sState.currentThinkingBlock);
+                                        if (data.type === 'stopped') showToast('已停止生成');
+                                        else if (data.truncated) showToast('输出达到长度上限，已截断');
+                                        sState.currentThinkingBlock = null;
+                                        sState.currentThinkingTextEl = null;
+                                        sState.currentThinkingRaw = '';
+                                        sState.currentAnswerEl = null;
+                                        sState.currentAnswerRaw = '';
+                                        sState.isStreaming = false;
+                                        sState.abortController = null;
+                                        updateInputState();
+                                        if (sState.lastUsage) applyContextUsage(sState.lastUsage);
+                                        else updateContextRing();
+                                        loadSessions();
+                                        return;
+                                    } else if (data.type === 'error') {
+                                        showToast(data.message || 'API 请求超时');
+                                        if (sState.currentAnswerEl && sState.currentAnswerRaw) {
+                                            sState.currentAnswerEl.innerHTML = renderMarkdown(sState.currentAnswerRaw);
+                                        }
+                                        finalizeThinking(sState.currentThinkingBlock);
+                                        sState.currentThinkingBlock = null;
+                                        sState.currentThinkingTextEl = null;
+                                        sState.currentThinkingRaw = '';
+                                        sState.currentAnswerEl = null;
+                                        sState.currentAnswerRaw = '';
+                                        sState.isStreaming = false;
+                                        sState.abortController = null;
+                                        updateInputState();
+                                        updateContextRing();
+                                        loadSessions();
+                                        return;
+                                    }
+                                } catch (e) {
+                                    console.error('解析错误:', e, line);
+                                }
+                            }
+                        }
+                    }
+                })();
+            } catch (err) {
+                if (err.name === 'AbortError') {
+                    console.log(`会话 ${sessionId} 的请求已被取消`);
+                } else {
+                    console.error('请求错误:', err);
+                }
+                sessionState.isStreaming = false;
+                sessionState.abortController = null;
+                updateInputState();
+                updateContextRing();
+            }
+        }
+
+        const REASONING_EFFORTS = ['none', 'low', 'high', 'max'];
+        let currentReasoningEffort = 'high';
+
+        async function openSettings() {
+            const overlay = document.getElementById('settings-overlay');
+            try {
+                const res = await fetch('/api/config');
+                const cfg = await res.json();
+                document.getElementById('cfg-base-url').value = cfg.base_url || '';
+                document.getElementById('cfg-api-key').value = cfg.api_key || '';
+                document.getElementById('cfg-model-id').value = cfg.model_id || '';
+                document.getElementById('cfg-max-tokens').value = cfg.max_tokens ?? 1000000;
+                setTestResult('');
+                currentReasoningEffort = normalizeReasoningEffort(cfg.reasoning_effort);
+                updateReasoningButtons();
+            } catch (err) {
+                console.error('加载配置失败:', err);
+            }
+            overlay.classList.add('visible');
+        }
+
+        function setReasoningEffort(effort) {
+            currentReasoningEffort = effort;
+            updateReasoningButtons();
+        }
+
+        function normalizeReasoningEffort(effort) {
+            const alias = { minimal: 'low', medium: 'high', xhigh: 'high', ultra: 'max' };
+            const value = alias[effort] || effort;
+            return REASONING_EFFORTS.indexOf(value) >= 0 ? value : 'high';
+        }
+
+        function updateReasoningButtons() {
+            REASONING_EFFORTS.forEach(function(effort) {
+                const btn = document.getElementById('btn-reasoning-' + effort);
+                if (btn) btn.classList.toggle('active', currentReasoningEffort === effort);
+            });
+        }
+
+        let testRunning = false;
+
+        function setTestResult(state, text) {
+            const el = document.getElementById('test-result');
+            const txt = document.getElementById('test-result-text');
+            if (!el || !txt) return;
+            el.className = 'test-result' + (state ? ' ' + state : '');
+            txt.textContent = text || '';
+        }
+
+        async function testApiConnection() {
+            if (testRunning) return;
+            const baseUrl = document.getElementById('cfg-base-url').value.trim();
+            const apiKey = document.getElementById('cfg-api-key').value.trim();
+            const modelId = document.getElementById('cfg-model-id').value.trim();
+            if (!baseUrl || !modelId) {
+                setTestResult('err', '请先填写 Base URL 和 Model ID');
+                return;
+            }
+
+            const btn = document.getElementById('btn-test-api');
+            testRunning = true;
+            btn.disabled = true;
+            setTestResult('pending', '测试中...');
+
+            try {
+                const res = await fetch('/api/test', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ base_url: baseUrl, api_key: apiKey, model_id: modelId }),
+                });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    setTestResult('ok', data.latency_ms + ' ms');
+                } else {
+                    setTestResult('err', data.message || '连接失败');
+                }
+            } catch (err) {
+                setTestResult('err', '请求失败');
+            } finally {
+                testRunning = false;
+                btn.disabled = false;
+            }
+        }
+
+        function closeSettings() {
+            const overlay = document.getElementById('settings-overlay');
+            overlay.classList.remove('visible');
+        }
+
+        async function saveSettings() {
+            const baseUrl = document.getElementById('cfg-base-url').value.trim();
+            const apiKey = document.getElementById('cfg-api-key').value.trim();
+            const modelId = document.getElementById('cfg-model-id').value.trim();
+            const rawMaxTokens = document.getElementById('cfg-max-tokens').value.trim();
+
+            if (!/^[1-9]\d*$/.test(rawMaxTokens)) {
+                alert('Max Tokens 必须是非 0 开头的正整数');
+                return;
+            }
+            const maxTokens = parseInt(rawMaxTokens, 10);
+
+            try {
+                const res = await fetch('/api/config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        base_url: baseUrl,
+                        api_key: apiKey,
+                        model_id: modelId,
+                        reasoning_effort: currentReasoningEffort,
+                        max_tokens: maxTokens,
+                    }),
+                });
+                const data = await res.json().catch(function() { return {}; });
+                if (!res.ok || data.status === 'error') {
+                    alert(data.message || '保存配置失败');
+                    return;
+                }
+                closeSettings();
+                updateContextRing();
+            } catch (err) {
+                console.error('保存配置失败:', err);
+                alert('保存配置失败');
+            }
+        }
+
+        let toastTimer = null;
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toast-msg');
+            if (!toast || !toastMsg) return;
+            toastMsg.textContent = msg;
+            toast.classList.remove('toast-hidden');
+            toast.classList.add('toast-visible');
+
+            if (toastTimer) clearTimeout(toastTimer);
+            toastTimer = setTimeout(function() {
+                toast.classList.remove('toast-visible');
+                toast.classList.add('toast-hidden');
+                toastTimer = null;
+            }, 2000);
+        }
+
+        function dismissToast() {
+            const toast = document.getElementById('toast');
+            if (!toast) return;
+            if (toast.classList.contains('toast-visible')) {
+                toast.classList.remove('toast-visible');
+                toast.classList.add('toast-hidden');
+            }
+            if (toastTimer) {
+                clearTimeout(toastTimer);
+                toastTimer = null;
+            }
+        }
+
+        async function fetchContextInfo() {
+            if (!currentSessionId) return null;
+            try {
+                const res = await fetch(`/api/context/${currentSessionId}`);
+                return await res.json();
+            } catch (err) {
+                console.error('获取上下文信息失败:', err);
+                return null;
+            }
+        }
+
+        function percentageToColor(pct) {
+            if (pct <= 60) return '#34d399';
+            if (pct < 80) return '#f59e0b';
+            return '#ef4444';
+        }
+
+        function formatPercent(pct) {
+            const value = Number(pct) || 0;
+            return (value >= 10 ? String(Math.min(Math.round(value), 999)) : value.toFixed(1)) + '%';
+        }
+
+        function formatTokens(value) {
+            return (Number(value) || 0).toLocaleString();
+        }
+
+        const CONTEXT_RING_CIRCUMFERENCE = 125.66;
+
+        async function updateContextRing() {
+            const info = await fetchContextInfo();
+            renderContextRing(info ? Number(info.percentage) || 0 : null);
+        }
+
+        function renderContextRing(pct) {
+            const ring = document.getElementById('context-ring');
+            const percentEl = document.getElementById('context-percent');
+            if (!ring || !percentEl) return;
+
+            if (pct === null || Number.isNaN(pct)) {
+                ring.style.strokeDashoffset = CONTEXT_RING_CIRCUMFERENCE;
+                ring.style.stroke = '#34d399';
+                percentEl.textContent = '0%';
+                return;
+            }
+
+            const arcPct = Math.min(pct, 100);
+            const offset = CONTEXT_RING_CIRCUMFERENCE * (1 - arcPct / 100);
+            const color = percentageToColor(pct);
+
+            ring.style.strokeDashoffset = offset;
+            ring.style.stroke = color;
+
+            percentEl.textContent = formatPercent(pct);
+        }
+
+        function applyContextUsage(usage) {
+            if (!usage) return;
+            let pct = Number(usage.percentage);
+            if (!Number.isFinite(pct)) {
+                const maxTokens = Number(usage.max_tokens) || 0;
+                const contextTokens = Number(usage.context_tokens);
+                const fallbackTokens = Number.isFinite(contextTokens)
+                    ? contextTokens
+                    : (Number(usage.input_tokens) || 0) + (Number(usage.output_tokens) || 0);
+                pct = maxTokens > 0 ? (fallbackTokens / maxTokens) * 100 : 0;
+            }
+            renderContextRing(pct);
+        }
+
+        function closeContextInfo() {
+            document.getElementById('ctxinfo-overlay').classList.remove('visible');
+        }
+
+        function addContextRow(label, value, isNote) {
+            const row = document.createElement('div');
+            row.className = 'ctxinfo-row' + (isNote ? ' note' : '');
+            const labelEl = document.createElement('span');
+            labelEl.className = 'ctxinfo-label';
+            labelEl.textContent = label;
+            const valueEl = document.createElement('span');
+            valueEl.className = 'ctxinfo-value';
+            valueEl.textContent = value;
+            row.appendChild(labelEl);
+            row.appendChild(valueEl);
+            return row;
+        }
+
+        function renderContextInfo(info) {
+            const isServer = info.source === 'server';
+            const pct = Number(info.percentage) || 0;
+            const maxTokens = Number(info.max_tokens) || 0;
+            const contextTokens = Number(info.token_count) || 0;
+
+            const sourceEl = document.getElementById('ctxinfo-source');
+            sourceEl.textContent = isServer ? '服务端真实用量' : '本地估算';
+            sourceEl.classList.toggle('server', isServer);
+
+            const percentEl = document.getElementById('ctxinfo-percent');
+            percentEl.textContent = formatPercent(pct);
+            percentEl.style.color = percentageToColor(pct);
+
+            document.getElementById('ctxinfo-token-count').textContent =
+                formatTokens(contextTokens) + ' / ' + formatTokens(maxTokens) + ' token';
+
+            const bar = document.getElementById('ctxinfo-bar-fill');
+            bar.style.width = Math.min(pct, 100) + '%';
+            bar.style.background = percentageToColor(pct);
+
+            const rows = document.getElementById('ctxinfo-rows');
+            rows.textContent = '';
+
+            if (isServer) {
+                const cached = Number(info.cached_tokens) || 0;
+                const reasoning = Number(info.reasoning_tokens) || 0;
+                rows.appendChild(addContextRow('本轮输入 token',
+                    formatTokens(info.input_tokens) + (cached > 0 ? '（缓存命中 ' + formatTokens(cached) + '）' : '')));
+                rows.appendChild(addContextRow('本轮输出 token',
+                    formatTokens(info.output_tokens) + (reasoning > 0 ? '（思考 ' + formatTokens(reasoning) + '）' : '')));
+                rows.appendChild(addContextRow('缓存命中率', (Number(info.cache_hit_rate) || 0).toFixed(1) + '%'));
+                rows.appendChild(addContextRow('剩余可用',
+                    formatTokens(Math.max(0, maxTokens - contextTokens)) + ' token'));
+                if (info.model) {
+                    rows.appendChild(addContextRow('统计模型', info.model));
+                }
+                if (info.updated_at) {
+                    rows.appendChild(addContextRow('统计时间',
+                        new Date(Number(info.updated_at) * 1000).toLocaleTimeString()));
+                }
+                rows.appendChild(addContextRow('占用口径',
+                    '本轮输入 + 输出，即下一轮重发的历史规模', true));
+            } else {
+                rows.appendChild(addContextRow('本地分词估算', formatTokens(contextTokens) + ' token'));
+                if (info.model) {
+                    rows.appendChild(addContextRow('当前模型', info.model));
+                }
+                rows.appendChild(addContextRow('说明',
+                    '服务端尚未返回 usage（新会话或服务端不支持），暂用本地分词估算，不含 system prompt 与工具定义', true));
+            }
+        }
+
+        async function handleContextRingClick() {
+            if (!currentSessionId) {
+                showToast('请先创建或选择一个会话');
+                return;
+            }
+
+            const indicator = document.getElementById('context-indicator');
+            if (indicator) {
+                indicator.style.background = 'rgba(255,255,255,0.08)';
+                setTimeout(function() { indicator.style.background = ''; }, 200);
+            }
+
+            const ctxInfo = await fetchContextInfo();
+            if (!ctxInfo) {
+                showToast('获取上下文信息失败');
+                return;
+            }
+
+            renderContextInfo(ctxInfo);
+            document.getElementById('ctxinfo-overlay').classList.add('visible');
+        }
+
+        function setupOverlayListeners() {
+            const co = document.getElementById('ctxinfo-overlay');
+            if (co) {
+                co.addEventListener('click', function(e) {
+                    if (e.target === co) closeContextInfo();
+                });
+            }
+            const so = document.getElementById('settings-overlay');
+            if (so) {
+                so.addEventListener('click', function(e) {
+                    if (e.target === so) closeSettings();
+                });
+            }
+        }
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', setupOverlayListeners);
+        } else {
+            setupOverlayListeners();
+        }
+    </script>
+
+    <div id="toast" class="toast-hidden">
+        <span id="toast-msg"></span>
+    </div>
+
+    <div id="ctxinfo-overlay">
+        <div id="ctxinfo-dialog">
+            <div class="ctxinfo-head">
+                <span class="ctxinfo-title">上下文用量</span>
+                <span id="ctxinfo-source" class="ctxinfo-source">—</span>
+            </div>
+            <div class="ctxinfo-hero">
+                <span id="ctxinfo-percent">0%</span>
+                <span id="ctxinfo-token-count"></span>
+            </div>
+            <div class="ctxinfo-bar"><i id="ctxinfo-bar-fill"></i></div>
+            <div id="ctxinfo-rows" class="ctxinfo-rows"></div>
+            <div id="ctxinfo-actions">
+                <button class="btn-cancel" onclick="closeContextInfo()">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="settings-overlay">
+        <div id="settings-dialog">
+            <h2>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="3"></circle>
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                </svg>
+                设置
+            </h2>
+            <div class="settings-field">
+                <label for="cfg-base-url">Base URL</label>
+                <input id="cfg-base-url" type="text" placeholder="https://api.deepseek.com">
+            </div>
+            <div class="settings-field">
+                <label for="cfg-api-key">API Key</label>
+                <input id="cfg-api-key" type="password" placeholder="sk-...">
+            </div>
+            <div class="settings-row">
+                <div class="settings-field">
+                    <label for="cfg-model-id">Model ID</label>
+                    <input id="cfg-model-id" type="text" placeholder="deepseek-flash">
+                </div>
+                <div class="settings-field">
+                    <label for="cfg-max-tokens" title="上下文窗口大小，仅用于界面显示用量百分比，不发送给 API">Max Tokens</label>
+                    <input id="cfg-max-tokens" type="text" inputmode="numeric" autocomplete="off" placeholder="1000000">
+                </div>
+            </div>
+            <div class="settings-field">
+                <label>思考强度</label>
+                <div class="reasoning-toggle">
+                    <button id="btn-reasoning-none" onclick="setReasoningEffort('none')">
+                        None
+                    </button>
+                    <button id="btn-reasoning-low" onclick="setReasoningEffort('low')">
+                        Low
+                    </button>
+                    <button id="btn-reasoning-high" onclick="setReasoningEffort('high')">
+                        High
+                    </button>
+                    <button id="btn-reasoning-max" onclick="setReasoningEffort('max')">
+                        Max
+                    </button>
+                </div>
+            </div>
+            <div class="settings-actions">
+                <button id="btn-test-api" class="btn-test" onclick="testApiConnection()">测试</button>
+                <span id="test-result" class="test-result">
+                    <svg class="ico-ok" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    <svg class="ico-err" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    <span id="test-result-text"></span>
+                </span>
+                <button class="btn-cancel" onclick="closeSettings()">取消</button>
+                <button class="btn-save" onclick="saveSettings()">保存</button>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
